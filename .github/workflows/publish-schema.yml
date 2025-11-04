@@ -1,0 +1,50 @@
+name: Publish Subgraph Schema
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'subgraph-locations/locations.graphql'
+      - 'subgraph-reviews/reviews.graphql'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: locations
+            schema_path: subgraph-locations/locations.graphql
+          - name: reviews
+            schema_path: subgraph-reviews/reviews.graphql
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rover CLI
+        run: |
+          curl -sSL https://rover.apollo.dev/nix/latest | sh
+          echo "$HOME/.rover/bin" >> $GITHUB_PATH
+
+      - name: Check if schema changed
+        id: schema-change
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "${{ matrix.schema_path }}"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish schema to Apollo GraphOS
+        if: steps.schema-change.outputs.changed == 'true'
+        env:
+          APOLLO_KEY: ${{ secrets.APOLLO_KEY }}
+          APOLLO_GRAPH_REF: ${{ secrets.APOLLO_GRAPH_REF }}
+          ROUTING_URL: ${{ secrets.ROUTING_URL }}
+        run: |
+          rover subgraph publish $APOLLO_GRAPH_REF \
+            --name ${{ matrix.name }} \
+            --schema ${{ matrix.schema_path }} \
+            --routing-url $ROUTING_URL
