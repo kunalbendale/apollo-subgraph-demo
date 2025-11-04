@@ -12,6 +12,8 @@ type Location @key(fields: "id") {
   id: ID!
   "The name of the location"
   name: String!
+  "The name of the City"
+  city: String!
   "A short description about the location"
   description: String!
   "The location's main photo as a URL"
